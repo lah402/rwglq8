@@ -1,0 +1,81 @@
+# 档案管理系统 · GitHub Pages 自动部署（智能定位版）
+#
+# 放到仓库的 .github/workflows/pages.yml
+#
+# 前置条件（只需做一次）：
+#   仓库 → Settings → Pages → Build and deployment → Source 选「GitHub Actions」
+#
+# 这个工作流会自动在仓库里找 index.html（不管它在根目录、public/ 还是别的子目录），
+# 复制到统一的发布目录再上传。所以你不用关心文件放在哪。
+# 如果找不到，会明确报错并告诉你该怎么做，而不是静默部署一个空站点。
+#
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 查找并准备 index.html
+        run: |
+          set -e
+          echo "==> 仓库文件一览："
+          find . -name '*.html' -not -path './.git/*' | head -20
+
+          # 在仓库里找 index.html（忽略大小写，排除 .git/.github）
+          SRC=$(find . -iname 'index.html' \
+                 -not -path './.git/*' \
+                 -not -path './.github/*' \
+                 -not -path './_site/*' \
+                 | head -1)
+
+          if [ -z "$SRC" ]; then
+            echo "::error::仓库里找不到 index.html。请把程序文件改名为 index.html 再上传（注意全小写）。"
+            exit 1
+          fi
+
+          echo "==> 找到：$SRC"
+          mkdir -p _site
+
+          # 优先用标准名字；若原文件名大小写不同，统一改成 index.html
+          cp "$SRC" _site/index.html
+
+          echo "==> 发布目录内容："
+          ls -l _site/
+          test -f _site/index.html || { echo "::error::index.html 未就位"; exit 1; }
+          echo "==> 大小：$(wc -c < _site/index.html) 字节"
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v6
+
+      - name: 上传站点
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
