@@ -2913,7 +2913,13 @@ var ALIGN = {
       return;
     }
     confirmDialog('压缩 ' + st.pending + ' 张图片',
-      '按「<b>' + esc(ps.label) + '</b>」压缩 <b>' + st.pending + '</b> 张图片。<br><br>' +
+      '按「<b>' + esc(ps.label) + '</b>」压缩 <b>' + st.pending + '</b> 张图片。' +
+      (st.count > st.pending
+        ? '<br><span style="color:#666">你本机共有 <b>' + st.count +
+          '</b> 张图（分布在 ' + st.withPhoto + ' 条档案上），' +
+          '其中 <b>' + (st.count - st.pending) +
+          '</b> 张在上传时已自动压过，这次只处理剩下的 ' + st.pending + ' 张。</span>'
+        : '') + '<br><br>' +
       '· 当前占用 <b>' + fmtBytes(st.total) + '</b>，压缩后通常会明显变小，' +
       '<b>同步速度会跟着变快</b>（同步慢几乎都是图片造成的）。<br>' +
       (st.count > st.pending ? '· 另 <b>' + (st.count - st.pending) +
@@ -2974,17 +2980,27 @@ var ALIGN = {
       btn.disabled = true;
       btn.classList.add('is-dim');
       btn.textContent = '🗜 压缩图片 ✓';
-      btn.title = '全部 ' + st.count + ' 张图片都已按「' + photoPreset().label +
-        '」压过（共 ' + fmtBytes(st.total) + '），无需再压。\n' +
+      btn.title = '全部 ' + st.count + ' 张图片（分布在 ' + st.withPhoto +
+        ' 条档案上，共 ' + fmtBytes(st.total) + '）都已按「' + photoPreset().label +
+        '」压过，无需再压。\n' +
         '想压得更小：到「设置 → 图片清晰度」换成更省流量的档位，这个按钮会重新亮起。';
       return;
     }
     btn.disabled = false;
     btn.classList.remove('is-dim');
-    btn.textContent = '🗜 压缩图片（' + st.pending + '）';
+    /* 括号里同时给出「待压缩 / 总数」。
+     * 只写待压缩数会让人误以为总共就这几张图 —— 实测中用户上传了十几张，
+     * 按钮却显示「（1）」，因为其余的全在上传那一刻就自动压过了（打了档位标记）。
+     * 写成 1/16 才能一眼看出真实总量。 */
+    btn.textContent = '🗜 压缩图片' + (st.count > st.pending
+      ? '（' + st.pending + '/' + st.count + '）' : '（' + st.pending + '）');
     btn.title = '按「' + photoPreset().label + '」压缩这 ' + st.pending +
-      ' 张图片（当前占 ' + fmtBytes(st.total) + '）' +
-      (st.count > st.pending ? '；另 ' + (st.count - st.pending) + ' 张已压过，会跳过' : '');
+      ' 张图片（当前占 ' + fmtBytes(st.total) +
+      '，分布在 ' + st.withPhoto + ' 条档案上）' +
+      (st.count > st.pending
+        ? '\n另 ' + (st.count - st.pending) + ' 张上传时已自动压过，会跳过。' +
+          '\n括号是「待压缩 / 总数」，不是只有 ' + st.pending + ' 张图。'
+        : '');
   }
 
   /* 缩略感知哈希（aHash）：把图缩到 8×8 灰度，按「比平均值亮/暗」生成 64 位指纹。
@@ -5271,11 +5287,12 @@ var ALIGN = {
           if (!st.count) return '';
           if (!st.pending) {
             return '<div class="hint" style="margin-top:8px">全部 ' + st.count +
-              ' 张图片都已按「' + esc(photoPreset().label) + '」压缩过（共 ' + fmtBytes(st.total) +
-              '），无需再压。换到更省流量的档位后才会重新生效。</div>';
+              ' 张图片（分布在 ' + st.withPhoto + ' 条档案上，共 ' + fmtBytes(st.total) +
+              '）都已按「' + esc(photoPreset().label) +
+              '」压缩过，无需再压。换到更省流量的档位后才会重新生效。</div>';
           }
           return '<div style="margin-top:8px"><button class="btn sm" id="btnShrinkPhotos">🗜 压缩 ' +
-            st.pending + ' 张图片</button>' +
+            st.pending + ' 张图片' + (st.count > st.pending ? '（共 ' + st.count + ' 张）' : '') + '</button>' +
             '<div class="hint" style="margin-top:4px">已存的图当前占 <b>' + fmtBytes(st.total) +
             '</b>。改上面的档位对它们<b>无效</b>，要点这里才会真正压小。' +
             (st.count > st.pending ? '（另 ' + (st.count - st.pending) + ' 张已压过，会自动跳过）' : '') +
